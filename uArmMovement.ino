@@ -1,28 +1,11 @@
 
+/*Code for Uarm Arduino Uno movement and receiving input from Mega
+ * 
+ * 
+ */
+
 #include "uArm.h"
 #include "uArmAPI.h"
-#include <SPI.h>
-#define USE_SERIAL_CMD  1 // 1: use serial for control  0: just use arduino to control(release ROM and RAM space)
-// Needed for Motors
-// L9958 slave select pins for SPI
-#define SS_M4 14
-#define SS_M3 13
-#define SS_M2 12
-#define SS_M1 11
-// L9958 DIRection pins
-#define DIR_M1 2
-#define DIR_M2 3
-#define DIR_M3 4
-#define DIR_M4 7
-// L9958 PWM pins
-#define PWM_M1 9
-#define PWM_M2 10    // Timer1
-#define PWM_M3 5
-#define PWM_M4 6     // Timer0
-
-
-// L9958 Enable for all 4 motors
-#define ENABLE_MOTORS 8
 
 unsigned long tickStartTime = millis(); // get timestamp;
 static void Init();
@@ -31,8 +14,6 @@ int box1[] = {-151.5, 130, 155};
 int box2[] = {-154, 234, 156};
 int diceBox[] = {-100 , 182,155}; // directly left of the storage area
 int sliceBox[] = {-50, 182,155};  // slightly more left than above coordinates
-int pwm1, pwm2, pwm3, pwm4;
-boolean dir1, dir2, dir3, dir4;
 //int input = 0;
 
 const byte numChars = 32;
@@ -48,82 +29,7 @@ boolean newData = false;
 
 void setup()
 {
-  unsigned int configWord;
 
-  // put your setup code here, to run once for motors:
-  pinMode(SS_M1, OUTPUT); digitalWrite(SS_M1, LOW);  // HIGH = not selected
-  pinMode(SS_M2, OUTPUT); digitalWrite(SS_M2, LOW);
-  pinMode(SS_M3, OUTPUT); digitalWrite(SS_M3, LOW);
-  pinMode(SS_M4, OUTPUT); digitalWrite(SS_M4, LOW);
-
-  // L9958 DIRection pins
-  pinMode(DIR_M1, OUTPUT);
-  pinMode(DIR_M2, OUTPUT);
-  pinMode(DIR_M3, OUTPUT);
-  pinMode(DIR_M4, OUTPUT);
-
-  // L9958 PWM pins
-  pinMode(PWM_M1, OUTPUT);  digitalWrite(PWM_M1, LOW);
-  pinMode(PWM_M2, OUTPUT);  digitalWrite(PWM_M2, LOW);    // Timer1
-  pinMode(PWM_M3, OUTPUT);  digitalWrite(PWM_M3, LOW);
-  pinMode(PWM_M4, OUTPUT);  digitalWrite(PWM_M4, LOW);    // Timer0
-
-  // L9958 Enable for all 4 motors
-  pinMode(ENABLE_MOTORS, OUTPUT); 
- digitalWrite(ENABLE_MOTORS, HIGH);  // HIGH = disabled
-
-/******* Set up L9958 chips *********
-  ' L9958 Config Register
-  ' Bit
-  '0 - RES
-  '1 - DR - reset
-  '2 - CL_1 - curr limit
-  '3 - CL_2 - curr_limit
-  '4 - RES
-  '5 - RES
-  '6 - RES
-  '7 - RES
-  '8 - VSR - voltage slew rate (1 enables slew limit, 0 disables)
-  '9 - ISR - current slew rate (1 enables slew limit, 0 disables)
-  '10 - ISR_DIS - current slew disable
-  '11 - OL_ON - open load enable
-  '12 - RES
-  '13 - RES
-  '14 - 0 - always zero
-  '15 - 0 - always zero
-  */  // set to max current limit and disable ISR slew limiting
-  configWord = 0b0000010000001100;
-
-  SPI.begin();
-  SPI.setBitOrder(LSBFIRST);
-  SPI.setDataMode(SPI_MODE1);  // clock pol = low, phase = high
-
-  // Motor 1
-  digitalWrite(SS_M1, LOW);
-  SPI.transfer(lowByte(configWord));
-  SPI.transfer(highByte(configWord));
-  digitalWrite(SS_M1, HIGH);
-  // Motor 2
-  digitalWrite(SS_M2, LOW);
-  SPI.transfer(lowByte(configWord));
-  SPI.transfer(highByte(configWord));
-  digitalWrite(SS_M2, HIGH);
-  // Motor 3
-  digitalWrite(SS_M3, LOW);
-  SPI.transfer(lowByte(configWord));
-  SPI.transfer(highByte(configWord));
-  digitalWrite(SS_M3, HIGH);
-  // Motor 4
-  digitalWrite(SS_M4, LOW);
-  SPI.transfer(lowByte(configWord));
-  SPI.transfer(highByte(configWord));
-  digitalWrite(SS_M4, HIGH);
-
-  //Set initial actuator settings to pull at 0 speed for safety
-  dir1 = 0; dir2 = 0; dir3 = 0; dir4 = 0; // Set direction
-  pwm1 = 0; pwm2 = 0; pwm3 = 0; pwm4 = 0; // Set speed (0-255)
-
-  digitalWrite(ENABLE_MOTORS, LOW);// LOW = enabled
   Serial.begin(9600);
   Init(); // Don't remove
   //uarm.init();
@@ -137,23 +43,24 @@ void setup()
 }
 
 void loop(){
+  int processLoc[] = {0,0,0};
   run(); // Don't remove
   recvWithStartEndMarkers();
- int processLoc[] = {0,0,0};
+ 
    
   if (newData == true) {
     strcpy(tempChars, receivedChars);
     // this temporary copy is necessary to protect the original data
-    //   because strtok() used in parseData() replaces the commas with \0
+    // because strtok() used in parseData() replaces the commas with \0
     parseData();
     showParsedData();
     
     //Serial.print("Choose box ... ");
     //Serial.println(receivedChars);
     //Serial.println(receivedChars[1] - '0');
-    if(strcmp(cutFromMega,"d")){
+    if(strcmp(cutFromMega,"d")== 0){
       processLoc = diceBox;
-    } else if (strcmp(cutFromMega,"s")){
+    } else if (strcmp(cutFromMega,"s")==0){
       processLoc = sliceBox;
     } else {
       Serial.print("Inoperable process selected you chose: ");
@@ -170,37 +77,9 @@ void loop(){
     } else {
       Serial.println("You didn't pick a food box, jackass.");
     }
-    Serial.println("Please input 1 or 2");
+    Serial.write(cutFromMega);
+    //Serial.println("Please input 1 or 2");
     newData = false;
-  }
-
-  if (strcmp(cutFromMega,"d")){
-
-    delay(1000);
-    //move actuator 1 in then out
-    dir1 = 1; 
-    pwm1 = 255; //set direction and speed 
-    digitalWrite(DIR_M1, dir1);
-    analogWrite(PWM_M1, pwm1); // write to pins
-    delay(5000);
-    dir1 = 0;
-    pwm1 = 255; //set direction and speed 
-    digitalWrite(DIR_M1, dir1);
-    analogWrite(PWM_M1, pwm1); // write to pins
-    delay(5000); //allows enough time for actuator to retract
-  }else if (strcmp(curFromMega,"s")){
-    
-    delay(1000);
-    dir3 = 1;
-    pwm3 = 255;
-    digitalWrite(DIR_M3, dir3);
-    analogWrite(PWM_M3, pwm3);
-    delay(5000);
-    dir3 = 0;
-    pwm3 = 255;
-    digitalWrite(DIR_M3, dir3);
-    analogWrite(PWM_M3, pwm3);
-    delay(5000);
   }
   
   //Serial.print("Input : "); 
