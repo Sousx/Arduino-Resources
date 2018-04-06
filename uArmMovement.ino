@@ -12,8 +12,8 @@ static void Init();
 
 int box1[] = {-151.5, 130, 155};
 int box2[] = {-154, 234, 156};
-int diceBox[] = {-100 , 182,155}; // directly left of the storage area
-int sliceBox[] = {-50, 182,155};  // slightly more left than above coordinates
+int diceBox[] = {0 , 182,155}; // directly left of the storage area
+int sliceBox[] = {50, 182,155};  // slightly more left than above coordinates
 //int input = 0;
 
 const byte numChars = 32;
@@ -53,18 +53,21 @@ void loop(){
     // this temporary copy is necessary to protect the original data
     // because strtok() used in parseData() replaces the commas with \0
     parseData();
-    showParsedData();
+    //showParsedData();
     
     //Serial.print("Choose box ... ");
     //Serial.println(receivedChars);
     //Serial.println(receivedChars[1] - '0');
     if(strcmp(cutFromMega,"d")== 0){
-      processLoc = diceBox;
+     // processLoc = diceBox;
+      memcpy(processLoc, diceBox,sizeof(diceBox));
     } else if (strcmp(cutFromMega,"s")==0){
-      processLoc = sliceBox;
+     // processLoc = sliceBox;
+      memcpy(processLoc, sliceBox,sizeof(sliceBox));
     } else {
       Serial.print("Inoperable process selected you chose: ");
       Serial.println(cutFromMega);
+      Serial.write('f');
     }
     if (boxFromMega == 1){
       Serial.print("Get food from box 1, cut ");
@@ -155,7 +158,7 @@ void getFood(int storage[], int processing[])
     moveTo(storage[0],storage[1],storageZ, 25);  //Move to Box 1
     //Serial.println("@1"); // report ready
     //reportPos(); //Serial Prints the current position
-    delay(100);
+    delay(10);
   }
   delay(1000);
   pumpOn();
